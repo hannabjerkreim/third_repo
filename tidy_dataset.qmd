@@ -1,0 +1,322 @@
+---
+title: "tidy_data"
+format: html
+editor: visual
+---
+
+# Tidy Data (Chap.12)
+
+```{r}
+#| label: setup
+library(tidyverse)
+```
+
+## Tidy Data
+
+Tidy Data:
+
+1.  Each variable must have its own column.
+2.  Each observation must have its own row.
+3.  Each value must have its own cell.
+
+If two of the conditions above are satisfied then the third will also be satisfied.
+
+**Observation:** a set of measurements of the underlying phenomenon.
+
+-   At the same time
+-   Of the same object
+
+## Tidy Data; examples
+
+### Table 3
+
+```{r}
+table3
+```
+
+table3 is not tidy!\
+Why?
+Two values in one cell.
+
+We can make it tidy:
+
+```{r}
+tidy3 <- table3 |>
+  separate(
+    col = rate,
+    into = c("cases", "pop"),
+    sep = "/"
+  )
+```
+
+tidy3 is a tidy dataset:
+
+```{r}
+tidy3
+```
+
+### Table 2
+
+```{r}
+table2
+```
+
+table 2 is not tidy.\
+Each observation is spread over two rows.
+
+We can make it tidy:
+
+```{r}
+tidy2 <- table2 |>
+  pivot_wider(
+    names_from = type,
+    values_from = count
+  )
+```
+
+tidy2 is a tidy dataset:
+
+```{r}
+tidy2
+```
+
+### Table 4
+
+table4a and table4b is not tidy!\
+Why?
+Two observations in one row + the observations are spread over two tables.
+
+```{r}
+table4a
+```
+
+```{r}
+table4b
+```
+
+We need to make both of the tables tidy:
+
+```{r}
+tidy4a <- table4a |>
+  pivot_longer(
+    cols = 2:3,
+    names_to = "Year",
+    values_to = "cases"
+  )
+  
+```
+
+```{r}
+tidy4a
+```
+
+```{r}
+ag_table4b <- table4b |>
+  rename(
+    y1999 = `1999`,
+    y2000 = `2000`
+  )
+```
+
+```{r}
+tidy4b <- ag_table4b |>
+   pivot_longer(
+    cols = 2:3,
+    names_to = "year",
+    values_to = "pop",
+    names_prefix = "y"
+  )
+```
+
+```{r}
+tidy4b
+```
+
+We need to merge the two tables:
+
+```{r}
+tidy4 <- left_join(tidy4a, tidy4b, join_by(country, Year == year)) |>
+  rename(year = Year)
+```
+
+```{r}
+tidy4
+```
+
+### Table 5
+
+Table 5 is not tidy!
+
+```{r}
+#| paged.print: false
+table5
+```
+
+Making it tidy:
+
+```{r}
+tidy5 <- table5 |>
+  unite(
+    col = year,
+    century, year,
+    sep = ""
+  ) |>
+  separate(
+    col = rate,
+    into = c("cases", "pop"),
+    sep ="/"
+  )
+```
+
+```{r}
+#| paged.print: false
+tidy5
+```
+
+## Missing Values
+
+Values can be missing in two ways
+
+1.  Explicitly, i.e. flagged with NA
+2.  Implicitly, i.e. simply not present in the data
+
+```{r}
+stocks <- tibble(
+  year   = c(2015, 2015, 2015, 
+             2015, 2016, 2016, 2016),
+  qtr    = c(   1,    2,    3,    
+                4,    2,    3,    4),
+  return = c(1.88, 0.59, 0.35,
+             NA, 0.92, 0.17, 2.66)
+)
+stocks
+```
+
+First quarter 2016 is missing, implicitly missing.
+
+Implecitly missing becomes explicitly missing:
+
+```{r}
+stocks_wider <- stocks %>% 
+  pivot_wider(
+    names_from = year,
+    values_from = return
+    )
+stocks_wider
+```
+
+### missing; *values_drop_na = TRUE*
+
+```{r}
+stocks_wider %>% 
+  pivot_longer(
+    cols = -qtr,
+    names_to = "year", # in quote since it does not exist yet
+    values_to = "return",
+    values_drop_na = TRUE
+  ) %>% 
+  arrange(year, qtr)
+```
+
+### missing; complete()
+
+complete() takes a set of columns, and finds all unique combinations.
+
+It then ensures the original dataset contains all those values, filling in explicit NAs where necessary.
+
+```{r}
+stocks %>% 
+  complete(year, qtr)
+```
+
+### missing; fill()
+
+```{r}
+treatment <- tribble(
+  ~ person,           ~ treatment, ~response,
+  "Derrick Whitmore", 1,           7,
+  NA,                 2,           10,
+  NA,                 3,           9,
+  "Katherine Burke",  1,           4
+)
+treatment
+```
+
+fill() can save a lot of work.
+
+NA for person, should be the name of the person above.
+
+Important parameter:
+
+-   ... Columns to fill. Names separated by","
+-   .directions = c("down", "up", "downup", "updown"
+
+```{r}
+treatment %>% 
+  fill(person, .direction = c("down"))
+```
+
+```{r}
+treatment %>% 
+  fill(person, .direction = c("up"))
+```
+
+## Case: who
+
+```{r}
+who <- tidyr::who
+```
+
+```{r}
+who <- who |>
+  pivot_longer(
+    cols = -c(country:year),
+    names_to = "categories",
+    values_to = "values"
+  )
+```
+
+```{r}
+# sjekk alle unike verdier i en variabel
+unique(who$categories)
+```
+
+```{r}
+# erstatte "newrel" med "new_rel" + kvitte oss med "new_"
+who <- who |>
+  mutate(
+    categories = str_replace(categories, "newrel", "new_rel" ),
+    categories = str_replace(categories, "new_", "")
+  ) |>
+# splitte opp i to variabler ved "_"
+  separate(
+    col = categories,
+    into = c("type", "genderAge"),
+    sep = "_"
+  ) |>
+# splitte videre opp i to nye variabler
+  separate(
+    col = genderAge,
+    into = c("gender", "age"),
+    sep = 1
+  ) |>
+# Endre aldersgruppen "65" til "6599"  
+  mutate(
+    age = str_replace(age, "65", "6599" )
+  ) |>
+  separate(
+    col = age,
+    into = c("AgeStart", "AgeEnd"),
+    sep = -2
+  )
+```
+
+```{r}
+tmp <- who |>
+  unite(
+    col = "age",
+    AgeStart, AgeEnd, 
+    sep = "_"
+
+  )
+```

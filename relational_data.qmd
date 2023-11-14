@@ -1,0 +1,110 @@
+---
+title: "relational_data"
+format: html
+editor: visual
+---
+
+# Relational Data (Chap. 13)
+
+```{r}
+#| label: setup
+library(tidyverse)
+library(nycflights13)
+```
+
+## Joins
+
+Data spread over files/tables and some key existing, or possible to generate, that we can use to tie them together.
+
+**Mutating joins:** Add new variable(s) to a tibble/dataframe taken from other tibbles/dataframes.
+
+**Filtering joins**: filter observations, hence affect observations not variables.
+
+**Set observations:** Think Venn-diagrams, union, intersection, set differences.
+
+### Example 1:
+
+```{r}
+flights <- flights
+airlines <- airlines
+```
+
+```{r}
+flights |>
+  select(carrier, everything())
+```
+
+```{r}
+airlines
+```
+
+```{r}
+#| paged.print: false
+flights %>% 
+  select(year:day, carrier, everything()) %>% 
+  group_by(carrier) %>% 
+  summarise(first(dep_time)) %>% 
+  head()
+```
+
+*Carrier* possible key to get airlines names into the flights dataframe.
+
+Join flights and airline:
+
+```{r}
+tmp <- left_join(flights, airlines, join_by(carrier)) 
+
+tmp <- select(carrier, airline_name = name, everything())
+```
+
+Doing the same with a pipe:
+
+```{r}
+tmp <- flights |>
+  left_join(airlines, join_by(carrier)) |>
+  select(carrier, airline_name = name, everything())
+```
+
+What if the key has different names in the two dataframes?
+
+```{r}
+airlines <- airlines |>
+  rename(id = carrier)
+```
+
+```{r}
+tmp <- flights |>
+  left_join(airlines, join_by(carrier == id)) |>
+  select(carrier, airline_name = name, everything())
+```
+
+### Example 2:
+
+```{r}
+nyc_airports <- airports |>
+  filter(faa %in% c('JFK', 'LGA', 'EWR'))
+```
+
+```{r}
+flights |>
+  select(origin, everything())
+```
+
+```{r}
+flights <- flights |>
+  left_join(airlines, join_by(carrier)) |>
+  select(carrier, airline_name, everything())
+```
+
+```{r}
+nf <- names(flights)
+nf[nf %in% names(planes)]
+```
+
+```{r}
+flights <- flights |>
+  left_join(
+    y = planes,
+    join_by(tailnum)
+    )
+```

@@ -1,0 +1,60 @@
+---
+title: "functions"
+format: html
+editor: visual
+---
+
+# Functions
+
+```{r}
+#| label: setup
+#| output: false
+library(tidyverse)
+```
+
+```{r}
+decide_number <- function(x) {
+stopifnot(is.numeric(x) & length(x) == 1)
+  if (x > 0) {
+    paste(x, "is greater than zero")
+  } else if (x < 0) {
+    paste(x, "is less than zero")
+  } else {
+    paste(x, "is zero")
+  }
+}
+```
+
+```{r}
+decide_number(100)
+```
+
+```{r}
+decide_number(-5)
+```
+
+```{r}
+decide_number(0)
+```
+
+```{r}
+decide_number(-0.01)
+```
+
+```{r}
+decide_numvec <- function(x) {
+  stopifnot(is.numeric(x))
+  x_g <- x > 0
+  x_l <- x < 0
+  x_ans <- case_when(
+    x_g == TRUE~ paste(x, "is greater than zero"),
+    x_l == TRUE ~ paste(x, "is less than zero"),
+    !(x_g | x_l) == TRUE ~ paste(x, "is zero")
+  )
+  x_ans
+}
+```
+
+```{r}
+decide_numvec(c(2, -5, 0))
+```

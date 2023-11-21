@@ -1,0 +1,165 @@
+---
+title: "many_models"
+format: html
+editor: visual
+---
+
+# Many Models
+
+```{r}
+#| label: setup
+#| output: false
+library(tidyverse)
+library(modelr)
+library(nycflights13)
+library(lubridate)
+library(patchwork)
+library(broom)
+```
+
+-   Many simple models on complex datasets.
+
+-   List-columns to store arbitrary data structures in a data frame.
+
+-   broom package to turn models into tidy data.
+
+-   Example gapminder\
+
+```{r}
+gapminder <- gapminder::gapminder
+```
+
+```{r}
+print(head(gapminder, n = 20))
+```
+
+\
+
+```{r}
+gapminder %>% 
+  ggplot(aes(year, lifeExp, group = country, colour = continent)) +
+    geom_line(alpha = 1/3)
+```
+
+```{r}
+gapminder %>% 
+  filter(continent == "Africa")  %>% 
+  ggplot(aes(year, lifeExp, group = country)) +
+    geom_line()
+```
+
+Simple model
+
+```{r}
+no <- gapminder %>% filter(country == "Norway")
+no_mod = lm(lifeExp ~ year, data = no)
+no1 <- no %>%
+  ggplot(mapping = aes(x = year, y = lifeExp)) +
+  geom_line() +
+  ggtitle("Full data =")
+no2 <- no %>% 
+  add_predictions(no_mod, var = "pred_no") %>% 
+  ggplot(mapping = aes(x = year, y = pred_no)) +
+  geom_line() +
+  ggtitle("Linear trend + ")
+no3 <- no %>% 
+  add_residuals(no_mod, var = "res_no") %>% 
+  ggplot(mapping = aes(x = year, y = res_no)) +
+  geom_line() +
+  ggtitle(" Residuals")
+# since we use package patchwork
+no1 + no2 + no3
+```
+
+```{r}
+by_country <- gapminder %>% 
+  # next a trick to bring with us continent variable
+  # not needed for the grouping (no two countries with same name)
+  group_by(country, continent) %>% 
+  nest()
+```
+
+```{r}
+by_country
+```
+
+```{r}
+by_country %>% 
+  # pick Norway
+  filter(country == "Norway") %>%
+  # pick the data variable for norway
+  .$data %>% 
+  # we want the content
+  .[[1]]
+```
+
+```{r}
+country_model <- function(a_df) {
+  # same simple model for each country
+  lm(lifeExp ~ year, data = a_df)
+}
+```
+
+```{r}
+by_country <- by_country %>% 
+  # remember map(data, function), our data named data
+  mutate(model = map(data, .f = country_model))
+```
+
+```{r}
+print(by_country, n = 3)
+```
+
+```{r}
+by_country %>% 
+  # pick Norway
+  filter(country == "Norway") %>%
+  # pick the data variable for norway
+  .$model %>% 
+  # we want the content
+  .[[1]] %>% 
+  summary()
+```
+
+```{r}
+by_country %>% 
+  # pick Norway
+  filter(country == "Norway") %>%
+  # pick the data variable for norway
+  .$model %>% 
+  # we want the content
+  .[[1]] %>% 
+  coefficients()
+```
+
+```{r}
+by_country <- by_country %>% 
+  mutate(
+    # remember map2(var1, var2, function)
+    # we want to vary data and model
+    # one combination for each country
+    #add_residuals(data, model)
+    res = map2(data, model, add_residuals)
+  )
+```
+
+```{r}
+res_90c <- by_country %>% 
+  unnest(res)
+print(res_90c, n = 4)
+```
+
+```{r}
+res_90c %>% 
+  filter(country == "Norway") %>% 
+  print(n = 5)
+```
+
+```{r}
+res_90c %>% 
+  filter(country == "Norway") %>% 
+  ggplot(mapping = aes(x = year, y = resid)) + 
+  geom_point() +
+  geom_line() +
+  geom_hline(yintercept = 0)
+```
